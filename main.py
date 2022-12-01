@@ -1,43 +1,74 @@
 from datetime import date
 import PySimpleGUI as sg
-from bs4 import BeautifulSoup as bs
 import requests
-from  datetime import date
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-url = "https://dskbank.bg"
-session = requests.Session()
-session.headers[
-    "User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) 107.0.5304.87 Safari/537.36"
-html = session.get(url)
 
-tabela = bs(html.text, "html.parser")
-data = tabela.find("div", class_ = "currency-box__inner"). find_all("td")
+def get_date_list(url):  # returns period of time as a list of strings
+    date_dict = get_exchange_rate(url)
+    date_list = list(date_dict)
+    return date_list
+
+
+def get_exchange_rate(url):
+    response = requests.get(url)
+    dictionary_ = response.json()
+    list_ = dictionary_["rates"]
+    dict_ = {}
+    date_ = []
+    value_ = []
+    for item in list_:
+        date_.append(item["effectiveDate"])
+        value_.append(item["mid"])
+    for item in range(0, len(value_)):
+        dict_[date_[item]] = value_[item]
+    return dict_
+
+
+def get_currency_as_list(
+        url):  # reformats currency exchange rate from a dictionary to a list -> useful for current value of exchange reate
+    currency_dict = get_exchange_rate(url)
+    currency_list = list(currency_dict.values())
+    return currency_list
+
+
+def get_currency_ratio(currency_1, currency_2):  # returns ratio of any currencies as a list in specific time period
+    ratio = []
+    for i in range(0, len(currency_1)):
+        ratio.append(round(currency_1[i] / currency_2[i], 4))
+    return ratio
+
+
 today = date.today()
-# for td in data:
-#     print(td.text)
-usd = round((float(data[1].text)+ float(data[2].text))/2, 4)
+url_usd = "http://api.nbp.pl/api/exchangerates/rates/A/USD/2022-01-01/" + f"{today}"
+url_eur = "http://api.nbp.pl/api/exchangerates/rates/A/EUR/2022-01-01/" + f"{today}"
+url_bgn = "http://api.nbp.pl/api/exchangerates/rates/A/BGN/2022-01-01/" + f"{today}"
 
-eur = (float(data[10].text)+ float(data[11].text))/2
+usd_list = get_currency_as_list(url_usd)
+eur_list = get_currency_as_list(url_eur)
+bgn_list = get_currency_as_list(url_bgn)
 
-rate = round((usd/eur),4)
-#print(rate)
+usd_to_eur = get_currency_ratio(usd_list, eur_list)
 
-
-layout = [
-    [sg.Push(), sg.Text(font= "Calibre 16", key = "-TEXT-", enable_events= True),sg.Push()],
-[sg.Multiline("HERE WILL BE GRAPH \n Press any button", size=(50,20), no_scrollbar= True, justification="center")],
-    [sg.Push(), sg.Button("USD", key = "-USD-"), sg.Button("EUR", key = "-EUR-"), sg.Button("USD/EUR", key = "-RATE-"), sg.Push()]
-]
-window = sg.Window("USDtoEUR V0.0.1", layout)
-
-while True:
-    event, values = window.read()
-    if event == sg.WINDOW_CLOSED:
-        break
-    if event == "-USD-":
-        window["-TEXT-"].update(usd)
-    if event == "-EUR-":
-        window["-TEXT-"].update(eur)
-    if event == "-RATE-":
-        window["-TEXT-"].update(rate)
-window.close()
+#
+# # Builds GUI:
+# layout = [
+#     [sg.Push(), sg.Text(today), sg.Text(font="Calibre 16", key="-TEXT-", enable_events=True), sg.Push()],
+#     [sg.Push(), sg.Button("USD", key="-USD-"), sg.Button("EUR", key="-EUR-"), sg.Button("USD/EUR", key="-RATE-"),
+#      sg.Push()]
+# ]
+# window = sg.Window("USDtoEUR V0.0.1", layout)
+plt.plot(get_date_list(url_eur), usd_to_eur)
+plt.show()
+# while True:
+#     event, values = window.read()
+#     if event == sg.WINDOW_CLOSED:
+#         break
+#     if event == "-USD-":
+#         window["-TEXT-"].update(usd)
+#     if event == "-EUR-":
+#         window["-TEXT-"].update(eur)
+#     if event == "-RATE-":
+#         window["-TEXT-"].update(rate)
+# window.close()
